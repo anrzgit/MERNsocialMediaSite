@@ -8,9 +8,14 @@ import helmet from "helmet"
 import path from "path"
 import { fileURLToPath } from "url"
 import morgan from "morgan"
-import { ftruncate } from "fs"
-import { error } from "console"
+import userRoutes from "./routes/users.js"
+import authRoutes from "./routes/auth.js"
+import postRoutes from "./routes/posts.js"
 import {register} from "./controllers/auth.js"
+import {createPost} from "./controllers/posts.js"
+import { verifyToken } from "./middleware/auth.js"
+
+ 
 
 // CONFIGURATONS----------------------------------------
 
@@ -24,17 +29,27 @@ const __dirname = path.dirname(__filename)
 //(as defined in the previous line of code you provided).
 
 dotenv.config();
+//dotenv.config() is a function from the dotenv package, 
+//which is a zero-dependency module that loads environment variables from a .env file into process.env
 const app = express();
 app.use(express.json());
+//express.json() is a built in middleware function in Express starting from v4.16.0. 
+//It parses incoming JSON requests and puts the parsed data in req.body.
+
 app.use(helmet());
 app.use(helmet.crossOriginEmbedderPolicy({policy : "require-corp"}));
 app.use(morgan("common"));
+//morgan is used to log HTTP requests in an Express app. It can help with debugging and monitoring by providing 
+//information about incoming requests, such as the request method, URL, response status, and response time. 
+//The common format is one of several predefined log formats that can be used with morgan. It outputs the standard Apache common log, which 
+//includes information such as the remote IP address, request method, URL, response status code, and response size.
+
 app.use(bodyParser.json({limit : "30mb",extended : true}));
 app.use(bodyParser.urlencoded({limit : "30mb",extended : true}));
 app.use(cors());
 app.use("assets", express.static(path.join(__dirname,'public/assets')));
 
-//FILE STORAGE ------------------------
+//--------------FILE STORAGE ------------------------
 
 const storage = multer.diskStorage({
     destination : function(req,file,cb){
@@ -57,7 +72,16 @@ const upload = multer({storage})
 
 //------------------ROUTES WITH FILES--------------------
 
-app.post("/auth/register",upload.single('picture'),register);
+app.post("/auth/register",upload.single('picture'),verifyToken,register);
+app.post("/post", verifyToken,upload.single('picture'),createPost);
+
+//-------------------ROUTES---------------
+app.use("/auth",authRoutes);
+//That line of code mounts the authRoutes router on the /auth path of your main app. This means that any request to a path that starts with /auth will be handled by the authRoutes router.
+//For example, if you have a route defined in authRoutes for the path /login, it will now be accessible in your main app at the path /auth/login
+
+app.use("/users",userRoutes);
+app.use("/posts",postRoutes);
 
 
 //------------------MONGOOSE SETUP--------------------
